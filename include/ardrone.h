@@ -82,7 +82,7 @@ public:
     double derivative_gain = 0;
 
     // SGD parameters
-    const int amount_of_training_examples = 25;// for point = 25; for trajectory = 10
+    const int amount_of_training_examples = 32;// for point = 25; for trajectory = 10
     int steps_counter = 0;
 
     std::vector<double> sgd_error;
@@ -109,9 +109,11 @@ public:
 
     void SGDOptimization(std::string type, double time)
     {
+      auto rng = std::default_random_engine {};
+      std::shuffle(std::begin(sgd_error_terms), std::end(sgd_error_terms), rng);
 
         double learning_rate = 0.001;// for point = 0.0003; for trajectory = 0.01
-        int epochs = 50;// for point = 100; for trajectory = 50
+        int epochs = 100;// for point = 100; for trajectory = 50
 
         for(std::size_t epoch = 0; epoch < epochs; epoch++)
         {
@@ -128,11 +130,8 @@ public:
               // Add up the sum of the squared errors
             sum_of_sq_error += error * error;
 
-             // If the error has converged, break, to save computation time
-                if(sum_of_sq_error < 0.00001)
-                {
-                    break;
-                }
+            // If the error has converged, break, to save computation time
+            if(sum_of_sq_error < 0.00001) break;
 
               for(std::size_t coeff_index = 0; coeff_index < coefficients.size(); coeff_index++)
               {
