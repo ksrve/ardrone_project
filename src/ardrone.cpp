@@ -86,8 +86,8 @@ void Ardrone::hover()
 
 void Ardrone::updateOdometry()
 {
-    //dronepose_sub = nh.subscribe("/ground_truth/state", 1000, &Ardrone::odometryCallback, this);
-    dronepose_sub = nh.subscribe("/ardrone/odometry", 1000, &Ardrone::odometryCallback, this);
+    dronepose_sub = nh.subscribe("/ground_truth/state", 1000, &Ardrone::odometryCallback, this);
+    //dronepose_sub = nh.subscribe("/ardrone/odometry", 1000, &Ardrone::odometryCallback, this);
 }
 
 //====
@@ -221,17 +221,19 @@ void Ardrone::updatePIDControl(double targetX, double targetY, double targetZ)
         derivative_error[2] = -(drone.vel_z);
         derivative_error[3] = -(drone.vel_yaw);
 
-        double error_r = 0.8;
+        double error_r = 0.2;
 
         double length = sqrt((pose_error[0]*pose_error[0]) + (pose_error[1]*pose_error[1]) + (pose_error[2]*pose_error[2]));
 
         if (length < error_r) return;
 
+        double time = ros::Time::now().toSec() - old_t.toSec();
 
-        xValue.optimizeFunction(pose_error[0], integ_pose_error[0], derivative_error[0],1);
-        yValue.optimizeFunction(pose_error[1], integ_pose_error[1], derivative_error[1],0);
-        zValue.optimizeFunction(pose_error[2], integ_pose_error[2], derivative_error[2],0);
-        yawValue.optimizeFunction(pose_error[3], 0.0, derivative_error[3],0);
+
+        xValue.optimizeFunction(pose_error[0], integ_pose_error[0], derivative_error[0], "x", time);
+        yValue.optimizeFunction(pose_error[1], integ_pose_error[1], derivative_error[1], "y", time);
+        zValue.optimizeFunction(pose_error[2], integ_pose_error[2], derivative_error[2], "z", time);
+        yawValue.optimizeFunction(pose_error[3], 0.0, derivative_error[3], "yaw" , time);
         calcPIDControl(pose_error, derivative_error,integ_pose_error, current_yaw);
 
         ros::spinOnce();
@@ -279,15 +281,16 @@ void Ardrone::updatePIDControl(double targetX, double targetY, double targetZ)
         //ROS_INFO("Default coeffs z:   %0.3f   %0.3f   %0.3f",p_coeff_z, i_coeff_z, d_coeff_z);
         //ROS_INFO("Default coeffs yaw: %0.3f   %0.3f   %0.3f",p_coeff_yaw,0.000, d_coeff_yaw);
 
-        double time = ros::Time::now().toSec() - old_t.toSec();
-        std::ofstream out ("out.txt", std::ios::app);
+
+        std::ofstream out ("/home/user/catkin_ws/src/ardrone_project/doc/out.txt", std::ios::app);
         if (out.is_open()){
         out << current_x << " " << current_y << " " << current_z << " " << current_yaw << " " << time << std::endl;
         }
-        std::ofstream err ("errors.txt", std::ios::app);
+        std::ofstream err ("/home/user/catkin_ws/src/ardrone_project/doc/errors.txt", std::ios::app);
         if (err.is_open()){
         err << pose_error[0] << " " << pose_error[1] << " " << pose_error[2] << " " << pose_error[3] << " " << time << std::endl;
         }
+        /**
          std::ofstream sgd_y ("sgd_y.txt", std::ios::app);
         if (sgd_y.is_open()){
         sgd_y << yValue.coefficients[0] << " " << yValue.coefficients[1] << " " << yValue.coefficients[2] << " " << time <<std::endl;
@@ -296,6 +299,7 @@ void Ardrone::updatePIDControl(double targetX, double targetY, double targetZ)
         if (sgd_z.is_open()){
         sgd_z << zValue.coefficients[0] << " " << zValue.coefficients[1] << " " << zValue.coefficients[2] << " " << time <<std::endl;
         }
+        */
 
         counter+=1;
     }
@@ -371,7 +375,7 @@ void Ardrone::calcPIDControl(const double * pose_error, const double * diff_pose
 
     x_linear_control = relu(x_linear_control, 1.0);
 
-    //control.setXVelocity(x_linear_control);
+    control.setXVelocity(x_linear_control);
 
     // y linear control
 
@@ -381,7 +385,7 @@ void Ardrone::calcPIDControl(const double * pose_error, const double * diff_pose
 
     y_linear_control = relu(y_linear_control, 1.0);
 
-    //control.setYVelocity(y_linear_control);
+    control.setYVelocity(y_linear_control);
 
     // z linear control
 
@@ -391,7 +395,7 @@ void Ardrone::calcPIDControl(const double * pose_error, const double * diff_pose
 
     z_linear_control = relu(z_linear_control, 1.0);
 
-    //control.setZVelocity(z_linear_control);
+    control.setZVelocity(z_linear_control);
 
     // yaw_control
     double yaw_control  = p_coeff_yaw * proportional_part[3]
@@ -403,7 +407,7 @@ void Ardrone::calcPIDControl(const double * pose_error, const double * diff_pose
 
     // --- Publication of control commands
 
-    //vel_pub.publish(control.getCmdVel());
+    vel_pub.publish(control.getCmdVel());
 
 
 }

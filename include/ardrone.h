@@ -37,34 +37,34 @@ using namespace std;
 class ArdroneOdometry
 {
 public:
-    //current ardrone position 
-    struct ArdronePosition 
+    //current ardrone position
+    struct ArdronePosition
     {
         double posX;
         double posY;
         double posZ;
     };
 
-    //current ardrone orientation 
-    struct ArdroneEulerAngle 
+    //current ardrone orientation
+    struct ArdroneEulerAngle
     {
         double rotX;// roll
         double rotY;// pitch
         double rotZ;// yaw
     };
     // for derivative part
-    
+
         double vel_x;
         double vel_y;
         double vel_z;
-    
+
     //struct ArdroneImu
     //{
         double vel_roll;
         double vel_pitch;
         double vel_yaw;
     //};
-       
+
 };
 
 class StochasticGradientDescent
@@ -84,15 +84,15 @@ public:
     // SGD parameters
     const int amount_of_training_examples = 25;// for point = 25; for trajectory = 10
     int steps_counter = 0;
-    
+
     std::vector<double> sgd_error;
     std::vector<std::vector<double>> sgd_error_terms;
 
     // Vector coefficients
     std::vector<double> coefficients{proportional_gain, integral_gain, derivative_gain};
-    
+
     double error;
-    
+
 
     void updateErrors(double proportional_error, double integral_error, double derivative_error)
     {
@@ -107,21 +107,21 @@ public:
         sgd_error_terms.push_back(error_values);
     }
 
-    void SGDOptimization(int type)
+    void SGDOptimization(std::string type, double time)
     {
 
-        double learning_rate = 0.0003;// for point = 0.0003; for trajectory = 0.01
-        int epochs = 100;// for point = 100; for trajectory = 50
-        
+        double learning_rate = 0.001;// for point = 0.0003; for trajectory = 0.01
+        int epochs = 50;// for point = 100; for trajectory = 50
+
         for(std::size_t epoch = 0; epoch < epochs; epoch++)
         {
             double sum_of_sq_error = 0.0;
             // From 2 because of Gazebo
             for(std::size_t i = 2; i < sgd_error.size(); i++)
             {
-              double predicted_error =  coefficients[0] * sgd_error_terms[i][0] + 
-                                        coefficients[1] * sgd_error_terms[i][1] + 
-                                        coefficients[2] * sgd_error_terms[i][2]; 
+              double predicted_error =  coefficients[0] * sgd_error_terms[i][0] +
+                                        coefficients[1] * sgd_error_terms[i][1] +
+                                        coefficients[2] * sgd_error_terms[i][2];
 
               error = predicted_error - sgd_error[i];
 
@@ -137,13 +137,12 @@ public:
               for(std::size_t coeff_index = 0; coeff_index < coefficients.size(); coeff_index++)
               {
                 coefficients[coeff_index] = coefficients[coeff_index] - learning_rate * error * sgd_error_terms[i][coeff_index];
-                
-                }
-                if(type == 1){
-                 std::ofstream sgd_x ("sgd_x.txt", std::ios::app);
-                if (sgd_x.is_open()){
-                sgd_x << coefficients[0] << " " << coefficients[1] << " " << coefficients[2] << std::endl;
-              }
+            }
+            std::string name_file = "/home/user/catkin_ws/src/ardrone_project/doc/sgd_" + type + ".txt";
+                std::ofstream sgd (name_file, std::ios::app);
+                if (sgd.is_open()){
+                sgd << coefficients[0] << " " << coefficients[1] << " " << coefficients[2] << " " << time << std::endl;
+
             }
         }
     }
@@ -151,17 +150,17 @@ public:
         proportional_gain = abs(coefficients[0]);
         integral_gain = abs(coefficients[1]);
         derivative_gain = abs(coefficients[2]);
-    } 
+    }
 
       // PID optimizer
-      void optimizeFunction(double proportional_error, double integral_error, double derivative_error, int type)
+      void optimizeFunction(double proportional_error, double integral_error, double derivative_error, std::string type, double time)
       {
 
         updateErrors(proportional_error, integral_error, derivative_error);
 
         if(steps_counter == amount_of_training_examples)
         {
-          SGDOptimization(type);
+          SGDOptimization(type, time);
 
           steps_counter = 0;
           sgd_error.clear();
@@ -171,7 +170,7 @@ public:
         // Increment the counter
         steps_counter += 1;
       }
- 
+
 };
 
 class ControlArdrone
@@ -182,25 +181,25 @@ private:
 public:
     // get cmd_vel parametrs
     const geometry_msgs::Twist &getCmdVel()
-    { 
-        return cmd; 
+    {
+        return cmd;
     }
     // set cmd_vel parametrs
     void setXVelocity(const double &vel)
-    { 
-        cmd.linear.x = vel; 
-    }
-    void setYVelocity(const double &vel) 
     {
-        cmd.linear.y = vel; 
+        cmd.linear.x = vel;
     }
-    void setZVelocity(const double &vel) 
-    { 
-        cmd.linear.z = vel; 
+    void setYVelocity(const double &vel)
+    {
+        cmd.linear.y = vel;
     }
-    void setYaw(double yaw) 
-    { 
-        cmd.angular.z = yaw; 
+    void setZVelocity(const double &vel)
+    {
+        cmd.linear.z = vel;
+    }
+    void setYaw(double yaw)
+    {
+        cmd.angular.z = yaw;
     }
 };
 
@@ -211,7 +210,7 @@ class Ardrone
 
 public:
 
-	
+
     Ardrone();
 
     ~Ardrone();
@@ -224,7 +223,7 @@ public:
 
     //init PID
      void updatePIDControl(double targetX, double targetY, double targetZ);
-    
+
 
     //get Ardrone position: x,y,z
     ArdroneOdometry::ArdronePosition getArdronePos();
@@ -293,7 +292,7 @@ private:
 
     // ardrone state
     int ardrone_state;
-    
+
 
     double x, y, z, w;
 	double currentX, currentY, currentZ;
